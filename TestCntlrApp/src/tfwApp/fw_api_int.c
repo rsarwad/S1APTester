@@ -110,6 +110,10 @@ handleStdAloneActvDfltEpsBearerContextRej(ueActvDfltEpsBearerCtxtRej_t *data);
 PRIVATE Void handleDropRouterAdv(UeDropRA *data);
 PUBLIC FwCb gfwCb;
 
+PRIVATE S16
+handleDropActvDfltEpsBearerCtxAccept(ueDropActvDfltEpsBearerCtxtAcc_t *data);
+
+PRIVATE Void handleDropErabSetupReq(UeDropErabSetupReq_t *data);
 /* Adding UEID, epsupdate type, active flag into linked list for
  * TAU request
  */
@@ -2411,6 +2415,17 @@ PUBLIC S16 tfwApi
            ret = RFAILED;
          }
          break;
+      case UE_DROP_ACTV_DEFAULT_EPS_BEARER_CONTEXT_ACCEPT: {
+        FW_LOG_DEBUG(fwCb,
+                     "UE_DROP_ACTV_DEFAULT_EPS_BEARER_CONTEXT_ACCEPT message");
+        handleDropActvDfltEpsBearerCtxAccept(
+            (ueDropActvDfltEpsBearerCtxtAcc_t *)msg);
+        break;
+      }
+      case UE_DROP_ERAB_SETUP_REQ: {
+        FW_LOG_DEBUG(fwCb, "UE_DROP_ERAB_SETUP_REQ message");
+        handleDropErabSetupReq((UeDropErabSetupReq_t *)msg);
+        break;
       }
 
      default:
@@ -3431,3 +3446,60 @@ PRIVATE Void handleDropRouterAdv(UeDropRA *data) {
   fwSendToNbApp(msgReq);
   RETVOID;
 }
+
+/*
+ *
+ *   Fun:   handleDropActvDfltEpsBearerCtxAccept
+ *
+ *   Desc:  This function is used to handle standalone Activate Default Eps
+ *          Bearer context accept message from Test Controller
+ *
+ *   Ret:   None
+ *
+ *   Notes: None
+ *
+ *   File:  fw_api_int.c
+ *
+ */
+PRIVATE S16 handleDropActvDfltEpsBearerCtxAccept(
+    ueDropActvDfltEpsBearerCtxtAcc_t * data) {
+  FwCb *fwCb = NULLP;
+  UetMessage *uetMsg = NULLP;
+  UeEsmDropActDfltBearCtxtAcc *ueActDfltBearCtxtAcc = NULLP;
+  FW_GET_CB(fwCb);
+  FW_LOG_ENTERFN(fwCb);
+
+  FW_ALLOC_MEM(fwCb, &uetMsg, sizeof(UetMessage));
+  uetMsg->msgType = UE_DROP_ACTV_DEFAULT_EPS_BER_ACC;
+  ueActDfltBearCtxtAcc = &uetMsg->msg.ueDropActDfltBearCtxtAcc;
+
+  ueActDfltBearCtxtAcc->ueId = data->ueId;
+  ueActDfltBearCtxtAcc->dropActvDfltEpsBearerCtxtAcc =
+      data->dropActvDfltEpsBearerCtxtAcc;
+  fwSendToUeApp(uetMsg);
+  FW_LOG_EXITFN(fwCb, ROK);
+}
+
+PRIVATE Void handleDropErabSetupReq(UeDropErabSetupReq_t * data) {
+  FwCb *fwCb = NULLP;
+  NbtRequest *msgReq = NULLP;
+
+  FW_GET_CB(fwCb);
+  FW_LOG_ENTERFN(fwCb);
+
+  if (SGetSBuf(fwCb->init.region, fwCb->init.pool, (Data **)&msgReq,
+               (Size)sizeof(NbtRequest)) == ROK) {
+    cmMemset((U8 *)(msgReq), 0, sizeof(NbtRequest));
+  } else {
+    FW_LOG_ERROR(fwCb, "Failed to allocate memory");
+    RETVOID;
+  }
+
+  msgReq->msgType = NB_DROP_ERAB_SETUP_REQ;
+  msgReq->t.dropErabSetupReq.ueId = data->ue_Id;
+  msgReq->t.dropErabSetupReq.isDropErabSetupReqEnable = data->flag;
+
+  fwSendToNbApp(msgReq);
+  RETVOID;
+}
+

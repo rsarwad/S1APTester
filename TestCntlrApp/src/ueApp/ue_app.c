@@ -225,6 +225,7 @@ PRIVATE S16 ueAppEsmHndlIncPdnDisconRej(UeEsmCb *esmCb,CmNasEvnt *evnt,
 void ueSendErabSetupRspForFailedBearers(NbuErabsInfo *pNbuErabsInfo);
 PRIVATE S16 ueProcUeStandAloneActvDfltBerCtxtRej(UetMessage *p_ueMsg, Pst *pst);
 PRIVATE S16 ueAppBuildAndSendActDefltBerContextReject(UeCb *ueCb, U8 bearerId);
+PRIVATE S16 ueDropActivateDefaultEpsBearAcc(UetMessage *p_ueMsg, Pst *pst);
 
 PRIVATE S16 ueAppGetDrb(UeCb *ueCb, U8 *drb)
 {
@@ -5539,6 +5540,13 @@ PUBLIC S16 ueUiProcessTfwMsg(UetMessage *p_ueMsg, Pst *pst)
 
         break;
       }
+      case UE_DROP_ACTV_DEFAULT_EPS_BER_ACC: {
+        UE_LOG_DEBUG(ueAppCb,
+                     "Received UE_DROP_ACTV_DEFAULT_EPS_BER_ACC from TFW");
+        ret = ueDropActivateDefaultEpsBearAcc(p_ueMsg, pst);
+        break;
+      }
+
       default:
       {
          UE_LOG_ERROR(ueAppCb, "Recieved Invalid message of type: %d",
@@ -7329,6 +7337,9 @@ PRIVATE S16 ueAppEsmHdlIncUeEvnt
                          "Context Reject Failed ");
                   }
                   break;
+                }
+                if (ueCb->is_actv_drop_dflt_eps_ber_ctxt_acc) {
+                  RETVALUE(ROK);
                 }
                /* send stand-alone activate default bearer accept to mme */
                 ret = ueAppBuildAndSendActDefltBerContextAccept(ueCb,
@@ -9864,6 +9875,42 @@ PRIVATE S16 ueAppBuildAndSendActDefltBerContextReject(UeCb *ueCb, U8 bearerId) {
                           "Enodeb Failed");
     ret = RFAILED;
   }
+
+  UE_LOG_EXITFN(ueAppCb, ret);
+}
+
+/*
+ *
+ *       Fun: ueDropActivateDefaultEpsBearAcc
+ *
+ *       Desc:
+ *
+ *       Ret:  ROK - ok; RFAILED - failed
+ *
+ *       Notes: none
+ *
+ *       File:  ue_app.c
+ *
+ */
+PRIVATE S16 ueDropActivateDefaultEpsBearAcc(UetMessage *p_ueMsg, Pst *pst) {
+  S16 ret = ROK;
+  U32 ueId;
+  UeAppCb *ueAppCb = NULLP;
+  UeCb *ueCb = NULLP;
+
+  UE_GET_CB(ueAppCb);
+  UE_LOG_ENTERFN(ueAppCb);
+  UE_LOG_DEBUG(ueAppCb, "Processing standalone activate default EPS bearer "
+                        "context reject message from TFWAPP");
+
+  ueId = p_ueMsg->msg.ueDropActDfltBearCtxtAcc.ueId;
+  ret = ueDbmFetchUe(ueId, (PTR *)&ueCb);
+  if (ret != ROK) {
+    UE_LOG_ERROR(ueAppCb, "UeCb List NULL ueId = %d", ueId);
+    RETVALUE(ret);
+  }
+  ueCb->is_actv_drop_dflt_eps_ber_ctxt_acc =
+      p_ueMsg->msg.ueDropActDfltBearCtxtAcc.dropActvDfltEpsBearerCtxtAcc;
 
   UE_LOG_EXITFN(ueAppCb, ret);
 }
